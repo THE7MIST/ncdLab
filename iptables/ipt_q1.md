@@ -107,7 +107,7 @@ Use the resulting IP address in firewall rules.
 
 ---
 
-# 🖥️ Network Assumptions
+## 🖥️ Network Assumptions
 
 | Device             | Address        |
 | ------------------ | -------------- |
@@ -120,7 +120,7 @@ Use the resulting IP address in firewall rules.
 
 ---
 
-# 1️⃣ Enable IP Forwarding
+## 1️⃣ Enable IP Forwarding
 
 ```bash
 echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -140,7 +140,7 @@ Client → Firewall → Internet
 
 ---
 
-# 2️⃣ Make IP Forwarding Permanent
+## 2️⃣ Make IP Forwarding Permanent
 
 ```bash
 echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
@@ -155,7 +155,7 @@ Survives system reboot.
 
 ---
 
-# 3️⃣ Configure NAT (Internet Sharing)
+## 3️⃣ Configure NAT (Internet Sharing)
 
 ```bash
 iptables -t nat -A POSTROUTING \
@@ -196,7 +196,7 @@ Internet cannot send replies back to private addresses.
 
 ---
 
-# 4️⃣ Allow Established Connections
+## 4️⃣ Allow Established Connections
 
 ```bash
 iptables -A FORWARD \
@@ -224,7 +224,7 @@ Reply traffic is automatically allowed.
 
 ---
 
-# 5️⃣ Create Custom Chain
+## 5️⃣ Create Custom Chain
 
 ```bash
 iptables -N CDAC
@@ -242,7 +242,7 @@ Improves firewall organization.
 
 ---
 
-# 6️⃣ Redirect LAN Traffic to CDAC
+## 6️⃣ Redirect LAN Traffic to CDAC
 
 ```bash
 iptables -A FORWARD \
@@ -262,7 +262,7 @@ All LAN traffic is inspected by the CDAC chain.
 
 ---
 
-# 7️⃣ Allow DNS Requests
+## 7️⃣ Allow DNS Requests
 
 ```bash
 iptables -A CDAC \
@@ -284,7 +284,7 @@ iptables -A CDAC \
 
 ---
 
-# 8️⃣ Allow DNS Replies
+## 8️⃣ Allow DNS Replies
 
 ```bash
 iptables -A CDAC \
@@ -298,7 +298,7 @@ Allows DNS responses from the DNS server.
 
 ---
 
-# 9️⃣ Allow TCP DNS
+## 9️⃣ Allow TCP DNS
 
 ```bash
 iptables -A CDAC \
@@ -322,7 +322,7 @@ Some DNS operations use TCP instead of UDP.
 
 ---
 
-# 🔟 Block All Other DNS Servers
+## 🔟 Block All Other DNS Servers
 
 ```bash
 iptables -A CDAC \
@@ -348,7 +348,7 @@ can provide DNS services.
 
 ---
 
-# 1️⃣1️⃣ Block Facebook
+## 1️⃣1️⃣ Block Facebook
 
 ```bash
 iptables -A CDAC \
@@ -362,7 +362,7 @@ Facebook blocked for all clients.
 
 ---
 
-# 1️⃣2️⃣ Block Instagram
+## 1️⃣2️⃣ Block Instagram
 
 ```bash
 iptables -A CDAC \
@@ -372,7 +372,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣3️⃣ Block YouTube
+## 1️⃣3️⃣ Block YouTube
 
 ```bash
 iptables -A CDAC \
@@ -382,7 +382,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣4️⃣ Allow Google for Client1
+## 1️⃣4️⃣ Allow Google for Client1
 
 ```bash
 iptables -A CDAC \
@@ -393,7 +393,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣5️⃣ Allow Microsoft for Client1
+## 1️⃣5️⃣ Allow Microsoft for Client1
 
 ```bash
 iptables -A CDAC \
@@ -404,7 +404,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣6️⃣ Allow Oracle for Client1
+## 1️⃣6️⃣ Allow Oracle for Client1
 
 ```bash
 iptables -A CDAC \
@@ -415,7 +415,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣7️⃣ Allow Google for Client2
+## 1️⃣7️⃣ Allow Google for Client2
 
 ```bash
 iptables -A CDAC \
@@ -426,7 +426,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣8️⃣ Allow RedHat for Client2
+## 1️⃣8️⃣ Allow RedHat for Client2
 
 ```bash
 iptables -A CDAC \
@@ -437,7 +437,7 @@ iptables -A CDAC \
 
 ---
 
-# 1️⃣9️⃣ Allow HDFC Bank for Client2
+## 1️⃣9️⃣ Allow HDFC Bank for Client2
 
 ```bash
 iptables -A CDAC \
@@ -448,7 +448,7 @@ iptables -A CDAC \
 
 ---
 
-# 2️⃣0️⃣ Log Dropped Packets
+## 2️⃣0️⃣ Log Dropped Packets
 
 ```bash
 iptables -A CDAC \
@@ -477,7 +477,7 @@ journalctl -f
 
 ---
 
-# 2️⃣1️⃣ Drop Everything Else
+## 2️⃣1️⃣ Drop Everything Else
 
 ```bash
 iptables -A CDAC \
@@ -494,7 +494,7 @@ Anything not explicitly allowed is denied.
 
 ---
 
-# 2️⃣2️⃣ Configure Default Policies
+## 2️⃣2️⃣ Configure Default Policies
 
 ```bash
 iptables -P INPUT DROP
@@ -512,7 +512,7 @@ iptables -P OUTPUT ACCEPT
 
 ---
 
-# 2️⃣3️⃣ Verify Firewall Rules
+## 2️⃣3️⃣ Verify Firewall Rules
 
 ```bash
 iptables -L -n -v
@@ -526,7 +526,7 @@ Displays:
 
 ---
 
-# 2️⃣4️⃣ Verify NAT Rules
+## 2️⃣4️⃣ Verify NAT Rules
 
 ```bash
 iptables -t nat -L -n -v
@@ -541,7 +541,7 @@ MASQUERADE
 
 ---
 
-# 2️⃣5️⃣ Save Configuration Permanently
+## 2️⃣5️⃣ Save Configuration Permanently
 
 Install service:
 
@@ -569,7 +569,7 @@ systemctl restart iptables
 
 ---
 
-# 🔄 Final Packet Flow
+## 🔄 Final Packet Flow
 
 ```text
 Client
