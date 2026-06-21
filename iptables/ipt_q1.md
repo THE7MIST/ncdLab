@@ -1,23 +1,29 @@
-# Assignment 1 – IPTables Firewall Configuration
+# PTables Firewall Configuration
 
-## Objective
+# DITISS
 
-Configure IPTables as a network firewall with the following requirements:
+## NDC
 
-* LAN Network: `192.168.25.0/24`
-* Firewall LAN IP: `192.168.25.254`
-* Client1 IP: `192.168.25.10`
-* Client2 IP: `192.168.25.20`
-* DNS Server: `192.168.72.20`
-* Enable IP Forwarding and NAT
-* Create a custom chain named `CDAC`
-* Allow website access based on client policies
-* Block specific websites
-* Log dropped packets
-* Configure default deny policies
-* Save rules permanently
+## Assignment 1
 
----
+Configure iptables as a network firewall. Your LAN network address is **192.168.25.0/24**. Configure two clients in the network with IP addresses **192.168.25.10** and **192.168.25.20**.
+
+Configure the Firewall VM with LAN IP address **192.168.25.254**.
+
+Enable IP forwarding and configure NAT such that both clients can access the Internet.
+
+Create a new chain named **CDAC** and redirect all LAN traffic through this chain.
+
+Configure rules in the **CDAC** chain such that:
+
+* Client1 (**192.168.25.10**) should be allowed access only to **Microsoft**, **Oracle**, and **Google** websites.
+* Client2 (**192.168.25.20**) should be allowed access only to **RedHat**, **HDFC Bank**, and **Google** websites.
+* Allow DNS traffic only to and from the DNS server **192.168.72.20**.
+* Block access to **Facebook**, **Instagram**, and **YouTube** for all clients.
+* Log all dropped packets with a custom log prefix.
+* Configure appropriate default policies so that all traffic not explicitly allowed is denied.
+* Save the firewall configuration permanently and verify that all rules are retained after system reboot.
+
 
 # Network Topology
 
