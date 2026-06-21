@@ -1,10 +1,4 @@
-# PTables Firewall Configuration
 
-# DITISS
-
-## NDC
-
-## Assignment 1
 
 Configure iptables as a network firewall. Your LAN network address is **192.168.25.0/24**. Configure two clients in the network with IP addresses **192.168.25.10** and **192.168.25.20**.
 
