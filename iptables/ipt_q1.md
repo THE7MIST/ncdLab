@@ -1,4 +1,41 @@
-# 🔥 DITISS / NDC Assignment 1 - IPTables Firewall Configuration
+# Assignment 1 – IPTables Firewall Configuration
+
+## Objective
+
+Configure IPTables as a network firewall with the following requirements:
+
+* LAN Network: `192.168.25.0/24`
+* Firewall LAN IP: `192.168.25.254`
+* Client1 IP: `192.168.25.10`
+* Client2 IP: `192.168.25.20`
+* DNS Server: `192.168.72.20`
+* Enable IP Forwarding and NAT
+* Create a custom chain named `CDAC`
+* Allow website access based on client policies
+* Block specific websites
+* Log dropped packets
+* Configure default deny policies
+* Save rules permanently
+
+---
+
+# Network Topology
+
+```text
+                    Internet
+                        |
+                        |
+                  [ Firewall ]
+           WAN: ens33   LAN: ens37
+                  192.168.25.254
+                        |
+        --------------------------------
+        |                              |
+        |                              |
+ Client1                        Client2
+192.168.25.10              192.168.25.20
+```
+
 
 ## 📌 Important Reality About Domain Names
 
