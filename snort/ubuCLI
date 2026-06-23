@@ -1,0 +1,519 @@
+Install a web server on a Linux system. Install and configure Snort as IDS on this system.  Add following rules to Snort to generate an alert for following threats.
+If a ping packet with size grater than 128 bytes is received.
+If from an outside IP address 30 ICMP packets are received within 1 min.
+If from an outside single IP address more that 20 TCP SYN requests are received in 1 min to the web server
+If a brute force attack is done on the SSH service.
+If a Kali Linux machine boots in the network.
+If gmail website is accessed from the web server.
+If facebook website is accessed from the web server.
+If instagram website is accessed from the web server.
+----------------------
+sudo apt update
+sudo apt install snort -y
+
+
+Since the question specifically says:
+
+> **Install a web server on a Linux system. Install and configure Snort as IDS on this system.**
+
+This means **Snort must run on the Ubuntu Web Server itself**, not on pfSense.
+
+Your topology should be:
+
+```text
+Internet / Bridged Network (192.168.74.0/24)
+        |
+        |
+ Ubuntu Web Server + Snort IDS
+        |
+    192.168.74.X
+```
+
+or
+
+```text
+Kali Linux        --->      Ubuntu Web Server + Snort
+192.168.74.20              192.168.74.10
+```
+
+---
+
+# 1. Verify Network
+
+## Ubuntu Web Server
+
+Example:
+
+```bash
+ip addr
+```
+
+Output:
+
+```text
+192.168.74.10/24
+```
+
+---
+
+## Kali
+
+Example:
+
+```text
+192.168.74.20/24
+```
+
+---
+
+# 2. Install Apache Web Server
+
+```bash
+sudo apt update
+
+sudo apt install apache2 -y
+```
+
+Enable service:
+
+```bash
+sudo systemctl enable apache2
+sudo systemctl start apache2
+```
+
+Verify:
+
+```bash
+systemctl status apache2
+```
+
+Open browser:
+
+```text
+http://192.168.74.10
+```
+
+Apache page should appear.
+
+---
+
+# 3. Install Snort
+
+Verify:
+
+```bash
+snort -V
+```
+
+Expected:
+
+```text
+Version 2.9.x
+```
+
+---
+
+# 4. Find Interface Name
+
+```bash
+ip a
+```
+
+Example:
+
+```text
+ens33
+```
+
+Remember this interface.
+
+---
+
+# 5. Configure snort.conf
+
+Open:
+
+```bash
+sudo nano /etc/snort/snort.conf
+```
+
+---
+
+## HOME_NET
+
+Find:
+
+```text
+ipvar HOME_NET any
+```
+
+Replace:
+
+```text
+ipvar HOME_NET 192.168.74.0/24
+```
+
+---
+
+## EXTERNAL_NET
+
+Find:
+
+```text
+ipvar EXTERNAL_NET any
+```
+
+Replace:
+
+```text
+ipvar EXTERNAL_NET !$HOME_NET
+```
+
+---
+
+## Include Local Rules
+
+At bottom verify:
+
+```text
+include $RULE_PATH/local.rules
+```
+
+If missing add:
+
+```text
+include $RULE_PATH/local.rules
+```
+
+Save.
+
+---
+
+# 6. Create local.rules
+
+Open:
+
+```bash
+sudo nano /etc/snort/rules/local.rules
+```
+
+Paste everything below.
+
+---
+
+# Rule 1
+
+## Ping >128 Bytes
+
+```snort
+alert icmp any any -> $HOME_NET any \
+(msg:"ICMP Packet >128 Bytes"; \
+dsize:>128; \
+sid:1000001; rev:1;)
+```
+
+---
+
+# Rule 2
+
+## 30 ICMP Packets In 1 Minute
+
+```snort
+alert icmp $EXTERNAL_NET any -> $HOME_NET any \
+(msg:"ICMP Flood Detected"; \
+detection_filter:track by_src,count 30,seconds 60; \
+sid:1000002; rev:1;)
+```
+
+---
+
+# Rule 3
+
+## More Than 20 SYN Requests To Web Server
+
+Ubuntu Web Server:
+
+```text
+192.168.74.10
+```
+
+Rule:
+
+```snort
+alert tcp $EXTERNAL_NET any -> 192.168.74.10 80 \
+(msg:"SYN Flood Against Web Server"; \
+flags:S; \
+detection_filter:track by_src,count 20,seconds 60; \
+sid:1000003; rev:1;)
+```
+
+---
+
+# Rule 4
+
+## SSH Brute Force
+
+```snort
+alert tcp $EXTERNAL_NET any -> 192.168.74.10 22 \
+(msg:"SSH Brute Force Attack"; \
+flags:S; \
+detection_filter:track by_src,count 10,seconds 60; \
+sid:1000004; rev:1;)
+```
+
+---
+
+# Rule 5
+
+## Kali Linux Boot Detection
+
+Detect DHCP hostname "kali"
+
+```snort
+alert udp any 68 -> any 67 \
+(msg:"Kali Linux Boot Detected"; \
+content:"kali"; nocase; \
+sid:1000005; rev:1;)
+```
+
+---
+
+# Rule 6
+
+## Gmail Access
+
+```snort
+alert tcp $HOME_NET any -> any 80 \
+(msg:"GMAIL Access"; \
+content:"gmail"; nocase; \
+sid:1000006; rev:1;)
+```
+
+---
+
+# Rule 7
+
+## Facebook Access
+
+```snort
+alert tcp $HOME_NET any -> any 80 \
+(msg:"FACEBOOK Access"; \
+content:"facebook"; nocase; \
+sid:1000007; rev:1;)
+```
+
+---
+
+# Rule 8
+
+## Instagram Access
+
+```snort
+alert tcp $HOME_NET any -> any 80 \
+(msg:"INSTAGRAM Access"; \
+content:"instagram"; nocase; \
+sid:1000008; rev:1;)
+```
+
+Save.
+
+---
+
+# 7. Test Configuration
+
+```bash
+sudo snort -T -c /etc/snort/snort.conf
+```
+
+Expected:
+
+```text
+Snort successfully validated the configuration
+```
+
+---
+
+# 8. Start Snort IDS
+
+```bash
+sudo snort -A console \
+-i ens33 \
+-c /etc/snort/snort.conf
+```
+
+Replace:
+
+```text
+ens33
+```
+
+with your interface.
+
+---
+
+# 9. Generate Alerts
+
+## Large Ping
+
+From Kali:
+
+```bash
+ping -s 200 192.168.74.10
+```
+
+Alert:
+
+```text
+ICMP Packet >128 Bytes
+```
+
+---
+
+## ICMP Flood
+
+```bash
+for i in {1..50}
+do
+ping -c 1 192.168.74.10
+done
+```
+
+Alert:
+
+```text
+ICMP Flood Detected
+```
+
+---
+
+## SYN Flood
+
+Install:
+
+```bash
+sudo apt install hping3 -y
+```
+
+Run:
+
+```bash
+sudo hping3 -S -p 80 --flood 192.168.74.10
+```
+
+Alert:
+
+```text
+SYN Flood Against Web Server
+```
+
+---
+
+## SSH Brute Force
+
+Install:
+
+```bash
+sudo apt install hydra -y
+```
+
+Run:
+
+```bash
+hydra -l root -P rockyou.txt ssh://192.168.74.10
+```
+
+Alert:
+
+```text
+SSH Brute Force Attack
+```
+
+---
+
+## Kali Detection
+
+Renew DHCP:
+
+```bash
+sudo dhclient -r
+sudo dhclient
+```
+
+Alert:
+
+```text
+Kali Linux Boot Detected
+```
+
+---
+
+## Gmail Detection
+
+From Ubuntu:
+
+```bash
+curl http://gmail.com
+```
+
+Alert:
+
+```text
+GMAIL Access
+```
+
+---
+
+## Facebook Detection
+
+```bash
+curl http://facebook.com
+```
+
+Alert:
+
+```text
+FACEBOOK Access
+```
+
+---
+
+## Instagram Detection
+
+```bash
+curl http://instagram.com
+```
+
+Alert:
+
+```text
+INSTAGRAM Access
+```
+
+---
+
+# 10. Save Alerts To File (Recommended for Viva)
+
+Run Snort:
+
+```bash
+sudo snort -A fast \
+-i ens33 \
+-c /etc/snort/snort.conf \
+-l /var/log/snort
+```
+
+View alerts:
+
+```bash
+sudo cat /var/log/snort/alert
+```
+
+Take screenshots of:
+
+1. Apache running
+2. Snort validation (`-T`)
+3. Snort running
+4. Each generated alert
+5. `/var/log/snort/alert`
+
+These screenshots are usually sufficient as proof for the practical exam.
