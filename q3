@@ -1,0 +1,71 @@
+### Question 3
+
+**Configure Squid as a proxy server to enable internet access for your IP subnet. Implement rules to block all web access during 9:00 AM to 6:00 PM and allow access to cdac.in at all times.**
+
+### Commands
+
+Install Squid:
+
+```bash
+sudo dnf install squid -y
+```
+
+or
+
+```bash
+sudo apt install squid -y
+```
+
+Edit configuration:
+
+```bash
+sudo vi /etc/squid/squid.conf
+```
+
+Add the following lines:
+
+```ini
+acl mynetwork src 192.168.74.0/24
+acl cdac dstdomain .cdac.in
+acl officehours time 09:00-18:00
+
+http_access allow mynetwork cdac
+http_access deny mynetwork officehours
+http_access allow mynetwork
+
+http_port 3128
+```
+
+Validate configuration:
+
+```bash
+sudo squid -k parse
+```
+
+Start and enable Squid:
+
+```bash
+sudo systemctl enable squid
+sudo systemctl restart squid
+sudo systemctl status squid
+```
+
+Open firewall port:
+
+```bash
+sudo firewall-cmd --permanent --add-port=3128/tcp
+sudo firewall-cmd --reload
+```
+
+Configure client browser proxy:
+
+```text
+Proxy IP: <Squid_Server_IP>
+Port: 3128
+```
+
+Test:
+
+```bash
+curl -x http://<Squid_Server_IP>:3128 http://cdac.in
+```
