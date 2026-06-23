@@ -1,0 +1,379 @@
+# Nginx Reverse Proxy and Load Balancer Lab (RHEL/CentOS/Rocky Linux)
+
+## Lab Setup
+
+| Machine                       | IP            |
+| ----------------------------- | ------------- |
+| Web Server 1                  | 192.168.25.10 |
+| Web Server 2                  | 192.168.25.20 |
+| Reverse Proxy / Load Balancer | 192.168.25.30 |
+
+Replace IPs according to your environment.
+
+---
+
+# Part 1: Configure Web Server 1
+
+## Install Apache
+
+```bash
+yum install -y httpd
+```
+
+## Enable and Start Service
+
+```bash
+systemctl enable httpd
+systemctl start httpd
+```
+
+## Create Web Page
+
+```bash
+echo "<h1>Web Server 1 - IP: 192.168.25.10</h1>" > /var/www/html/index.html
+```
+
+## Open HTTP Port
+
+```bash
+firewall-cmd --permanent --add-service=http
+firewall-cmd --reload
+```
+
+## Disable SELinux
+
+Temporary:
+
+```bash
+setenforce 0
+```
+
+Permanent:
+
+```bash
+sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+```
+
+Verify:
+
+```bash
+getenforce
+```
+
+Output:
+
+```text
+Permissive
+```
+
+---
+
+# Part 2: Configure Web Server 2
+
+## Install Apache
+
+```bash
+yum install -y httpd
+```
+
+## Start Service
+
+```bash
+systemctl enable httpd
+systemctl start httpd
+```
+
+## Create Web Page
+
+```bash
+echo "<h1>Web Server 2 - IP: 192.168.25.20</h1>" > /var/www/html/index.html
+```
+
+## Open HTTP Port
+
+```bash
+firewall-cmd --permanent --add-service=http
+firewall-cmd --reload
+```
+
+## Disable SELinux
+
+```bash
+setenforce 0
+sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+```
+
+---
+
+# Verify Web Servers
+
+From any machine:
+
+```bash
+curl http://192.168.25.10
+```
+
+Output:
+
+```html
+<h1>Web Server 1 - IP: 192.168.25.10</h1>
+```
+
+```bash
+curl http://192.168.25.20
+```
+
+Output:
+
+```html
+<h1>Web Server 2 - IP: 192.168.25.20</h1>
+```
+
+---
+
+# Part 3: Configure Reverse Proxy Server
+
+## Install Nginx
+
+```bash
+yum install -y nginx
+```
+
+## Enable and Start
+
+```bash
+systemctl enable nginx
+systemctl start nginx
+```
+
+## Open HTTP Port
+
+```bash
+firewall-cmd --permanent --add-service=http
+firewall-cmd --reload
+```
+
+## Disable SELinux
+
+```bash
+setenforce 0
+sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+```
+
+---
+
+# Configure Reverse Proxy
+
+Edit:
+
+```bash
+vi /etc/nginx/nginx.conf
+```
+
+Inside `http {}` add:
+
+```nginx
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://192.168.25.10;
+    }
+
+    location /pune {
+        proxy_pass http://192.168.25.20;
+    }
+}
+```
+
+---
+
+## Test Configuration
+
+```bash
+nginx -t
+```
+
+Expected:
+
+```text
+syntax is ok
+test is successful
+```
+
+Reload:
+
+```bash
+systemctl restart nginx
+```
+
+---
+
+# Test Reverse Proxy
+
+## Default Website
+
+```bash
+curl http://192.168.25.30
+```
+
+Output:
+
+```html
+<h1>Web Server 1 - IP: 192.168.25.10</h1>
+```
+
+---
+
+## Pune URL
+
+```bash
+curl http://192.168.25.30/pune
+```
+
+Output:
+
+```html
+<h1>Web Server 2 - IP: 192.168.25.20</h1>
+```
+
+---
+
+# Part 4: Configure Load Balancer
+
+Edit nginx configuration:
+
+```bash
+vi /etc/nginx/nginx.conf
+```
+
+Inside `http {}`
+
+```nginx
+upstream backend_servers {
+    server 192.168.25.10;
+    server 192.168.25.20;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend_servers;
+    }
+}
+```
+
+---
+
+## Restart Nginx
+
+```bash
+nginx -t
+systemctl restart nginx
+```
+
+---
+
+# Test Load Balancing
+
+Run multiple times:
+
+```bash
+curl http://192.168.25.30
+```
+
+Example Output:
+
+```text
+Web Server 1 - IP: 192.168.25.10
+```
+
+Next request:
+
+```text
+Web Server 2 - IP: 192.168.25.20
+```
+
+Next request:
+
+```text
+Web Server 1 - IP: 192.168.25.10
+```
+
+Round Robin is the default algorithm.
+
+---
+
+# Part 5: Configure Weighted Load Balancing
+
+Edit nginx configuration:
+
+```nginx
+upstream backend_servers {
+    server 192.168.25.10 weight=7;
+    server 192.168.25.20 weight=1;
+}
+
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://backend_servers;
+    }
+}
+```
+
+---
+
+## Reload Nginx
+
+```bash
+nginx -t
+systemctl restart nginx
+```
+
+---
+
+# Test Weight
+
+Send 8 Requests
+
+```bash
+for i in {1..8}
+do
+curl -s http://192.168.25.30
+echo
+done
+```
+
+Expected Pattern:
+
+```text
+Web Server 1 - IP: 192.168.25.10
+Web Server 1 - IP: 192.168.25.10
+Web Server 1 - IP: 192.168.25.10
+Web Server 1 - IP: 192.168.25.10
+Web Server 1 - IP: 192.168.25.10
+Web Server 1 - IP: 192.168.25.10
+Web Server 1 - IP: 192.168.25.10
+Web Server 2 - IP: 192.168.25.20
+```
+
+Count Requests:
+
+```bash
+for i in {1..16}
+do
+curl -s http://192.168.25.30
+done | sort | uniq -c
+```
+
+Expected:
+
+```text
+14 Web Server 1 - IP: 192.168.25.10
+ 2 Web Server 2 - IP: 192.168.25.20
+```
+
+This confirms the **7:1 weighted load balancing** configuration.
