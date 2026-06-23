@@ -1,0 +1,87 @@
+### Question 2: Configure Squid Proxy
+
+**Requirement:**
+
+* Enable internet access for subnet `192.168.74.0/24`
+* Block all websites from **9:00 AM to 6:00 PM**
+* Allow **cdac.in** at all times
+
+---
+
+### Install Squid
+
+```bash
+sudo dnf install squid -y
+```
+
+or
+
+```bash
+sudo apt install squid -y
+```
+
+---
+
+### Edit Squid Configuration
+
+```bash
+sudo vi /etc/squid/squid.conf
+```
+
+Add:
+
+```ini
+acl mynetwork src 192.168.74.0/24
+acl cdac dstdomain .cdac.in
+acl officehours time 09:00-18:00
+
+http_access allow mynetwork cdac
+http_access deny mynetwork officehours
+http_access allow mynetwork
+
+http_port 3128
+```
+
+---
+
+### Start Squid
+
+```bash
+sudo systemctl enable squid
+sudo systemctl restart squid
+sudo systemctl status squid
+```
+
+---
+
+### Open Firewall Port
+
+```bash
+sudo firewall-cmd --permanent --add-port=3128/tcp
+sudo firewall-cmd --reload
+```
+
+---
+
+### Configure Client Browser
+
+Set Proxy:
+
+```text
+Proxy IP = <Squid_Server_IP>
+Port = 3128
+```
+
+---
+
+### Verify Configuration
+
+```bash
+sudo squid -k parse
+```
+
+Expected Result:
+
+* `http://cdac.in` → Allowed anytime
+* `http://google.com` → Blocked between 09:00 AM and 06:00 PM
+* Other websites → Allowed outside 09:00 AM–06:00 PM
