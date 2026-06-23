@@ -1,0 +1,210 @@
+Block ping to the Gateway IP from both the clients. 
+Block ping from client1 to client2 .
+Save the rules on the firewall VM.
+Flush the rules in the FORWARD chain of the Firewall VM.
+Now install apache web server on client1. Start the service. Add your index.html file.
+Block access to this website from Firewall VM. Only Client2 should be able to access it.
+Check if you can access the client1 website from Firewall VM.
+Check if you can access the client1 website from Client 2 vm.
+Allow SSH to firewall VM only from Client2 VM.
+Check ssh to firewall vm from client1. 
+Check ssh to firewall vm from client2
+
+
+Assuming your setup is:
+Device
+IP
+Firewall
+192.168.25.254
+Client1
+192.168.25.10
+Client2
+192.168.25.20
+
+
+1. Block Ping to Firewall from Both Clients
+On Firewall VM
+Block ICMP Echo Request to firewall itself:
+iptables -A INPUT -s 192.168.25.0/24 -p icmp --icmp-type echo-request -j DROP
+
+Effect
+Client1:
+ping 192.168.25.254
+
+Fails.
+Client2:
+ping 192.168.25.254
+
+Fails.
+
+2. Block Ping from Client1 to Client2
+On Firewall VM
+iptables -A FORWARD \
+-s 192.168.25.10 \
+-d 192.168.25.20 \
+-p icmp \
+--icmp-type echo-request \
+-j DROP
+
+Effect
+Client1:
+ping 192.168.25.20
+
+Fails.
+Client2:
+ping 192.168.25.10
+
+Still works unless separately blocked.
+
+3. Save Rules
+Rocky/CentOS:
+iptables-save > /root/fw_rules.txt
+
+Verify:
+cat /root/fw_rules.txt
+
+
+4. Flush FORWARD Chain
+On Firewall VM
+iptables -F FORWARD
+
+Verify:
+iptables -L FORWARD -n -v
+
+Expected:
+Chain FORWARD (policy ACCEPT)
+target     prot opt source destination
+
+No rules.
+
+5. Install Apache on Client1
+On Client1
+sudo dnf install httpd -y
+
+Start service:
+sudo systemctl enable httpd
+sudo systemctl start httpd
+
+Check:
+sudo systemctl status httpd
+
+
+6. Create index.html
+On Client1
+echo "CLIENT1 WEB SERVER" | sudo tee /var/www/html/index.html
+
+Verify:
+curl localhost
+
+Output:
+CLIENT1 WEB SERVER
+
+
+7. Block Firewall Access to Client1 Website
+Website:
+192.168.25.10:80
+
+On Firewall VM
+iptables -A OUTPUT \
+-d 192.168.25.10 \
+-p tcp \
+--dport 80 \
+-j REJECT
+
+Effect
+Firewall cannot open:
+curl http://192.168.25.10
+
+Fails.
+
+8. Allow Client2 Access to Client1 Website
+On Firewall VM
+iptables -A FORWARD \
+-s 192.168.25.20 \
+-d 192.168.25.10 \
+-p tcp \
+--dport 80 \
+-j ACCEPT
+
+Effect
+Client2:
+curl http://192.168.25.10
+
+Works.
+
+9. Test from Firewall
+On Firewall VM
+curl http://192.168.25.10
+
+Expected:
+Connection refused
+
+or timeout.
+Because OUTPUT rule blocks it.
+
+10. Test from Client2
+On Client2
+curl http://192.168.25.10
+
+Expected:
+CLIENT1 WEB SERVER
+
+
+11. Allow SSH to Firewall Only from Client2
+On Firewall VM
+Allow Client2:
+iptables -A INPUT \
+-s 192.168.25.20 \
+-p tcp \
+--dport 22 \
+-j ACCEPT
+
+Block everyone else:
+iptables -A INPUT \
+-p tcp \
+--dport 22 \
+-j DROP
+
+
+12. Test from Client1
+On Client1
+ssh root@192.168.25.254
+
+Expected:
+Connection timed out
+
+or
+Connection refused
+
+depending on policy.
+
+13. Test from Client2
+On Client2
+ssh root@192.168.25.254
+
+Expected:
+Password:
+
+SSH login should work.
+
+Verification Commands
+Firewall
+iptables -L INPUT -n -v
+
+Shows:
+ICMP DROP
+SSH ACCEPT (Client2)
+SSH DROP (Others)
+
+iptables -L OUTPUT -n -v
+
+Shows:
+HTTP block to Client1
+
+iptables -L FORWARD -n -v
+
+Shows:
+Client1 → Client2 ICMP DROP
+Client2 → Client1 HTTP ACCEPT
+These are the exact commands typically expected in DITISS/NDC iptables practicals.
+
