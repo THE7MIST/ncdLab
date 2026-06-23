@@ -1,0 +1,321 @@
+This lab requires 2 Linux machines.
+Put both machines network card in NAT mode. Remove manual IP address and put it on DHCP.
+If iptables is installed then stop iptables service. Disable it. Unmask the firewalld service.
+Enable firewalld service and start the firewalld service. 
+Set hostname to both the machines - server and client1 
+
+Now follow the OSSEC server installation steps.
+
+Once the OSSEC server is installed then install OSSEC client on the second machine.
+
+
+OSSEC HIDS Lab Setup (Server + Client)
+Lab Topology
+Machine
+Hostname
+Role
+Machine 1
+server
+OSSEC Manager
+Machine 2
+client1
+OSSEC Agent
+
+Both machines should be in NAT Network mode and obtain IP addresses via DHCP.
+
+Step 1: Configure Both Machines
+Verify Network Adapter
+In VMware/VirtualBox:
+Select VM
+Network Adapter → NAT
+Save settings
+
+Remove Static IP and Enable DHCP
+Check Interface Name
+ip a
+
+Example interface:
+ens33
+
+
+Edit Network Configuration
+For Rocky Linux / CentOS:
+sudo nmcli con show
+
+Find connection name and configure DHCP:
+sudo nmcli con mod ens33 ipv4.method auto
+sudo nmcli con up ens33
+
+Verify:
+ip a
+
+
+Disable iptables (If Installed)
+Check:
+systemctl status iptables
+
+Stop:
+sudo systemctl stop iptables
+
+Disable:
+sudo systemctl disable iptables
+
+
+Unmask Firewalld
+sudo systemctl unmask firewalld
+
+
+Enable and Start Firewalld
+sudo systemctl enable firewalld
+sudo systemctl start firewalld
+
+Verify:
+systemctl status firewalld
+
+
+Step 2: Configure Hostnames
+On Server Machine
+sudo hostnamectl set-hostname server
+
+Verify:
+hostname
+
+Output:
+server
+
+
+On Client Machine
+sudo hostnamectl set-hostname client1
+
+Verify:
+hostname
+
+Output:
+client1
+
+
+Step 3: Update Both Systems
+sudo dnf update -y
+
+or
+sudo yum update -y
+
+
+Step 4: Install OSSEC Server (Manager)
+Perform these steps on server machine.
+
+Install Required Packages
+sudo dnf install wget gcc gcc-c++ make unzip tar inotify-tools -y
+
+
+Download OSSEC
+cd /tmp
+
+wget https://github.com/ossec/ossec-hids/archive/3.7.0.tar.gz
+
+Extract:
+tar -xzf 3.7.0.tar.gz
+
+Move:
+cd ossec-hids-3.7.0
+
+
+Start Installation
+sudo ./install.sh
+
+
+Installation Answers
+Choose:
+English
+
+Press Enter
+What kind of installation?
+
+Enter:
+server
+
+
+Enable Features
+Answer:
+Integrity check daemon?      y
+Rootkit detection?           y
+Active response?             y
+Firewall response?           y
+
+
+Finish installation.
+Expected path:
+/var/ossec
+
+
+Start OSSEC
+sudo /var/ossec/bin/ossec-control start
+
+Check:
+sudo /var/ossec/bin/ossec-control status
+
+
+Step 5: Allow OSSEC Port
+OSSEC uses UDP 1514.
+Open firewall:
+sudo firewall-cmd --permanent --add-port=1514/udp
+
+Reload:
+sudo firewall-cmd --reload
+
+Verify:
+sudo firewall-cmd --list-ports
+
+Expected:
+1514/udp
+
+
+Step 6: Create Agent on Server
+Launch Agent Manager:
+sudo /var/ossec/bin/manage_agents
+
+
+Menu:
+(A) Add agent
+(E) Extract key
+(Q) Quit
+
+
+Add Agent
+Choose:
+A
+
+Agent Name:
+client1
+
+IP Address:
+<Client IP>
+
+Example:
+192.168.122.102
+
+ID:
+001
+
+
+Extract Key
+Choose:
+E
+
+Select:
+001
+
+Copy the generated key.
+Example:
+MDAxIGNsaWVudDEgMTkyLjE2OC4x...
+
+Save it.
+
+Step 7: Install OSSEC Agent
+Perform on client1 machine.
+
+Install Dependencies
+sudo dnf install wget gcc gcc-c++ make unzip tar inotify-tools -y
+
+
+Download OSSEC
+cd /tmp
+
+wget https://github.com/ossec/ossec-hids/archive/3.7.0.tar.gz
+
+Extract:
+tar -xzf 3.7.0.tar.gz
+
+cd ossec-hids-3.7.0
+
+
+Start Installation
+sudo ./install.sh
+
+
+Installation Type
+Select:
+agent
+
+
+Manager IP
+Enter:
+<Server IP>
+
+Example:
+192.168.122.101
+
+
+Finish installation.
+
+Step 8: Import Agent Key
+Run:
+sudo /var/ossec/bin/manage_agents
+
+Choose:
+I
+
+Paste copied key.
+Press:
+Q
+
+
+Step 9: Start Agent
+sudo /var/ossec/bin/ossec-control start
+
+Verify:
+sudo /var/ossec/bin/ossec-control status
+
+
+Step 10: Verify Communication
+On Server:
+sudo /var/ossec/bin/agent_control -l
+
+Expected:
+OSSEC HIDS agent_list.
+
+ID: 001, Name: client1, IP: 192.168.x.x, Active
+
+
+Step 11: Generate Test Alert
+On Client:
+sudo su -
+
+echo "failed login test" >> /var/log/secure
+
+Or:
+sudo su -
+cat /etc/shadow
+
+
+Step 12: Check Alerts on Server
+sudo tail -f /var/ossec/logs/alerts/alerts.log
+
+You should see alerts arriving from:
+client1
+
+
+Useful OSSEC Commands
+Server Status
+sudo /var/ossec/bin/ossec-control status
+
+Agent List
+sudo /var/ossec/bin/agent_control -l
+
+Restart OSSEC
+sudo /var/ossec/bin/ossec-control restart
+
+Real-Time Alerts
+sudo tail -f /var/ossec/logs/alerts/alerts.log
+
+Stop OSSEC
+sudo /var/ossec/bin/ossec-control stop
+
+At the end of the lab, verify:
+Both machines obtain IP via DHCP.
+Hostnames are server and client1.
+Firewalld is running.
+OSSEC manager is running on server.
+OSSEC agent is running on client1.
+agent_control -l shows the client as Active.
+
