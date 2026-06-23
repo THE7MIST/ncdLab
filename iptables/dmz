@@ -1,0 +1,466 @@
+
+Configure iptables as a network firewall. You LAN network address is 192.168.25.0/24. Add one more network card to the iptables firewall. This will be your DMZ network. The network address for the DMZ will be 192.168.35.0/24. (Note. Put first network card in bridged mode, second network card in host only mode and third network card in NAT mode for DMZ)
+Connect one client  to LAN. Connect second client to DMZ network. Configure iptables firewall such as to allow only DNS traffic, cdac, google and microsoft website for the LAN client. Allow full traffic to the DMZ client.
+Install httpd/Apache web server on the DMZ client. Configure port forwarding on the iptables firewall such that the website on the DMZ client is accessible on the WAN IP (Bridged adapter IP address).
+
+
+
+  This assignment has **3 machines**:
+
+| Machine               | Network         | Example IP       |
+| --------------------- | --------------- | ---------------- |
+| Firewall VM           | WAN + LAN + DMZ | WAN: 192.168.1.x |
+| LAN Client            | 192.168.25.0/24 | 192.168.25.10    |
+| DMZ Client/Web Server | 192.168.35.0/24 | 192.168.35.10    |
+
+---
+
+# Step 1: Configure Firewall Interfaces
+
+## On Firewall VM
+
+Check interfaces:
+
+```bash
+ip -br a
+```
+
+Assume:
+
+```text
+ens160 = WAN
+ens224 = LAN
+ens256 = DMZ
+```
+
+Assign IPs:
+
+```bash
+ip addr add 192.168.25.254/24 dev ens224
+ip addr add 192.168.35.254/24 dev ens256
+
+ip link set ens224 up
+ip link set ens256 up
+```
+
+### Verify
+
+```bash
+ip -br a
+```
+
+Expected:
+
+```text
+ens160  192.168.1.x
+ens224  192.168.25.254
+ens256  192.168.35.254
+```
+
+---
+
+# Step 2: Configure LAN Client
+
+## On LAN Client VM
+
+```bash
+ip addr add 192.168.25.10/24 dev ens160
+
+ip route add default via 192.168.25.254
+
+echo "nameserver 192.168.72.20" > /etc/resolv.conf
+```
+
+### Verify
+
+```bash
+route -n
+```
+
+Expected:
+
+```text
+Gateway
+192.168.25.254
+```
+
+---
+
+# Step 3: Configure DMZ Client
+
+## On DMZ VM
+
+```bash
+ip addr add 192.168.35.10/24 dev ens160
+
+ip route add default via 192.168.35.254
+
+echo "nameserver 192.168.72.20" > /etc/resolv.conf
+```
+
+---
+
+# Step 4: Install Apache
+
+## On DMZ VM
+
+Rocky/CentOS:
+
+```bash
+dnf install httpd -y
+```
+
+Start:
+
+```bash
+systemctl enable httpd
+systemctl start httpd
+```
+
+Check:
+
+```bash
+systemctl status httpd
+```
+
+---
+
+Create test page:
+
+```bash
+echo "DITISS DMZ WEB SERVER" > /var/www/html/index.html
+```
+
+---
+
+Verify locally:
+
+```bash
+curl localhost
+```
+
+Expected:
+
+```text
+DITISS DMZ WEB SERVER
+```
+
+---
+
+# Step 5: Enable IP Forwarding
+
+## On Firewall VM
+
+```bash
+echo 1 > /proc/sys/net/ipv4/ip_forward
+```
+
+Permanent:
+
+```bash
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+
+sysctl -p
+```
+
+Verify:
+
+```bash
+cat /proc/sys/net/ipv4/ip_forward
+```
+
+Expected:
+
+```text
+1
+```
+
+---
+
+# Step 6: Configure NAT
+
+## On Firewall VM
+
+WAN Interface:
+
+```text
+ens160
+```
+
+Command:
+
+```bash
+iptables -t nat -A POSTROUTING \
+-s 192.168.25.0/24 \
+-o ens160 \
+-j MASQUERADE
+```
+
+---
+
+DMZ Internet Access:
+
+```bash
+iptables -t nat -A POSTROUTING \
+-s 192.168.35.0/24 \
+-o ens160 \
+-j MASQUERADE
+```
+
+---
+
+Verify:
+
+```bash
+iptables -t nat -L -n -v
+```
+
+---
+
+# Step 7: Allow Forwarding
+
+## On Firewall VM
+
+```bash
+iptables -A FORWARD \
+-s 192.168.25.0/24 \
+-j ACCEPT
+```
+
+```bash
+iptables -A FORWARD \
+-s 192.168.35.0/24 \
+-j ACCEPT
+```
+
+```bash
+iptables -A FORWARD \
+-d 192.168.25.0/24 \
+-j ACCEPT
+```
+
+```bash
+iptables -A FORWARD \
+-d 192.168.35.0/24 \
+-j ACCEPT
+```
+
+---
+
+# Step 8: Allow Only Selected Sites for LAN Client
+
+Create chain:
+
+```bash
+iptables -N CDAC
+```
+
+Redirect LAN traffic:
+
+```bash
+iptables -I FORWARD 1 \
+-s 192.168.25.0/24 \
+-j CDAC
+```
+
+---
+
+Allow DNS:
+
+```bash
+iptables -A CDAC \
+-d 192.168.72.20 \
+-p udp --dport 53 \
+-j ACCEPT
+```
+
+---
+
+Resolve IPs:
+
+```bash
+host google.com
+host microsoft.com
+host cdac.in
+```
+
+Suppose you get IPs.
+
+Allow:
+
+```bash
+iptables -A CDAC -d <google-ip> -j ACCEPT
+iptables -A CDAC -d <microsoft-ip> -j ACCEPT
+iptables -A CDAC -d <cdac-ip> -j ACCEPT
+```
+
+---
+
+Drop everything else:
+
+```bash
+iptables -A CDAC -j DROP
+```
+
+---
+
+# Effect
+
+LAN Client:
+
+✅ Google
+
+✅ Microsoft
+
+✅ CDAC
+
+✅ DNS
+
+❌ Everything Else
+
+---
+
+# Step 9: Allow Full Access to DMZ Client
+
+DMZ requirement:
+
+> Allow full traffic to DMZ client
+
+Rule:
+
+```bash
+iptables -A FORWARD \
+-s 192.168.35.0/24 \
+-j ACCEPT
+```
+
+---
+
+# Step 10: Configure Port Forwarding
+
+Assignment requirement:
+
+> Website on DMZ should be accessible using Firewall WAN IP
+
+This is DNAT.
+
+---
+
+Find WAN IP:
+
+```bash
+ip -br a
+```
+
+Example:
+
+```text
+192.168.1.12
+```
+
+---
+
+Create Port Forward:
+
+```bash
+iptables -t nat -A PREROUTING \
+-p tcp \
+--dport 80 \
+-j DNAT \
+--to-destination 192.168.35.10:80
+```
+
+---
+
+Allow Forwarding:
+
+```bash
+iptables -A FORWARD \
+-p tcp \
+-d 192.168.35.10 \
+--dport 80 \
+-j ACCEPT
+```
+
+---
+
+# Verify
+
+From any machine:
+
+```bash
+curl http://192.168.1.12
+```
+
+Expected:
+
+```text
+DITISS DMZ WEB SERVER
+```
+
+---
+
+# Where Will You See the Effect?
+
+### NAT Rules
+
+```bash
+iptables -t nat -L -n -v
+```
+
+You should see:
+
+```text
+POSTROUTING MASQUERADE
+PREROUTING DNAT
+```
+
+---
+
+### Forward Rules
+
+```bash
+iptables -L FORWARD -n -v
+```
+
+You should see packet counters increasing.
+
+---
+
+### Apache
+
+On DMZ:
+
+```bash
+journalctl -u httpd -f
+```
+
+You should see incoming connections.
+
+---
+
+### Port Forward Test
+
+From LAN or WAN machine:
+
+```bash
+curl http://<Firewall-WAN-IP>
+```
+
+Should display:
+
+```text
+DITISS DMZ WEB SERVER
+```
+
+That confirms:
+
+* IP Forwarding ✓
+* NAT ✓
+* FORWARD chain ✓
+* DNAT ✓
+* Apache ✓
+* DMZ ✓
+* Website filtering ✓
+
+which satisfies the complete assignment.
